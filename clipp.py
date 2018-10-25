@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import re
 import sys
-debugPrint1=0 
+debugPrint1=0
 
 def quoteOrComment(matchobj):
     string = matchobj.group(1)
@@ -10,57 +10,51 @@ def quoteOrComment(matchobj):
     else:
         return string
 
-
 def removeComments(s):
-    removeBlocks = re.compile(r'(/\*.*?\*/)|(\".*?\")|(\'.*?\')',flags=re.DOTALL)
+    removeBlocks = re.compile(r'(/\*.*?\*/)|(\"[^\n]*?\")|(\'[^\n]*?\')',flags=re.DOTALL)
     s=re.sub(removeBlocks, quoteOrComment ,s)
     return s 
 
 #important is "DEFINE" case sensitive
 #important get rid of trailing white space in group2
 def define(macros,s):
-    matchobj = re.match(r"#\s*define\s+([a-zA-z_][a-zA-z_0-9]*)\s*(.*)",s)
+    matchobj = re.match(r"#\s*define\s+([a-zA-z_][a-zA-z_0-9]*)\s*(.*)\s*",s)
     if(matchobj):
-        macros[matchobj.group(1)]=matchobj.group(2)
+        macros[matchobj.group(1)]=matchobj.group(2).rstrip()
     else:
        sys.stderr.write("Bad define macro\n")
     return macros
 
 def subWithMacro(reBlock,s, macros):
-    outputString = ""
-    matchobjs = re.findall(reBlock, s)
-
+    matchobjs = re.finditer(reBlock, s)
     for matchobj in matchobjs:
-        string=""
-        for match in matchobj:
-            if(match!=''):
-                string=match
-
-        if(string):
-            if(re.match(r"(^[a-zA-z_0-9]).*", string)):
-                if(string in macros.keys()):
-                    outputString+= macros[string]
-                else:
-                    outputString+= string
-            else:
-                outputString+= string
-    return outputString
+        if(matchobj.group(3)):
+            string=matchobj.group(3)
+            if(string):
+                if(re.match(r"(^[a-zA-z_0-9]).*", string)):
+                    if(string in macros.keys()):
+                        string= macros[string]
+                        s = s[0:matchobj.start()] + string + s[matchobj.end():]
+    return s
 
 
 
 def normalLine(macros, s):
-    reBlock = re.compile(r'(\".*?\")|(\'.*?\')|([a-zA-z_0-9\s]*)|([^a-zA-z_0-9\'\"\s]*)')
+    reBlock = re.compile(r'(\".*?\")|(\'.*?\')|([a-zA-z_0-9\s]*)')
     while(s != subWithMacro(reBlock,s,macros)):
             s = subWithMacro(reBlock, s, macros)
-    if(s):
-        if(s[len(s)-1]!='\n'):
-            s+='\n'
-    return s
+    if(s=='\n'):
+        print('')
+    else:
+        print(s)
 
+
+def badQuotes(s):
+    if(s.count('\'')%2==1 or s.count('\"')%2==1):
+        sys.stderr.write("Bad number of quotes\n")
 
 def ifstatement(macros, curLine, lines):
     matchobj=re.match(r"^\s*#\s*ifdef\s+(.*)\s*", curLine)
-    outputString=""
     name = matchobj.group(1)
     inElse=0
     if(debugPrint1):
@@ -72,11 +66,12 @@ def ifstatement(macros, curLine, lines):
                 curLine=lines.pop(0)
             else:
                 sys.stderr.write("missing #endif\n")
-                return [macros, lines, outputString]
+                return [macros, lines]
         if(re.match(r"^\s*#\s*endif\s*",curLine)):
-                return [macros, lines, outputString]
+                return [macros, lines]
     curLine=lines.pop(0)
     while((re.match(r"^\s*#\s*else\s*",curLine)==None) and (re.match(r"^\s*#\s*endif\s*",curLine)==None)):
+        badQuotes(curLine)
         if(debugPrint1):
             print("IN WHILE LOOP:" + curLine)
         if(re.match(r"^\s*#\s*define\s+.*", curLine)):
@@ -85,23 +80,22 @@ def ifstatement(macros, curLine, lines):
             output = ifstatement(macros, curLine, lines)
             macros= output[0]
             lines = output[1]
-            outputString += output[2]
         elif(re.match(r"^\s*#.*",curLine)):
             sys.stderr.write("Unexpected direcative\n")
         else:
-            outputString+= normalLine(macros, curLine)
+            normalLine(macros, curLine)
         if(lines):
             curLine= lines.pop(0)
         else:
             sys.stderr.write("line 94missing #endif\n")
-            return [macros, lines, outputString]
+            return [macros, lines]
     #if we reached the else statment
     if(re.match(r"^\s*#\s*else\s*",curLine)):
         if(debugPrint1):
             print("AT ELSE STATEMENT")
         if(inElse):
             sys.stderr.write("extra else statement\n")
-            return [macros, lines, outputString]
+            return [macros, lines]
         else:
             if(debugPrint1):
                 print("In useless else statement")
@@ -110,16 +104,16 @@ def ifstatement(macros, curLine, lines):
                     curLine= lines.pop(0)
                 else:
                     sys.stderr.write("missing #endif\n")
-                    return [macros, lines, outputString]
+                    return [macros, lines]
     if(debugPrint1):
         print("At end of endif function:" + str(lines))
-    return [macros, lines, outputString]
+    return [macros, lines]
 
 
 
 
 def overall(macros, s):
-    outputString=""
+    s=removeComments(s)
     lines=s.splitlines()
     if(debugPrint1):
         print("List of Lines:" + str(lines))
@@ -129,6 +123,8 @@ def overall(macros, s):
     macros={}
     curLine= lines.pop(0)
     while(curLine):
+
+        badQuotes(curLine)
         if(debugPrint1):
             print("Current Line " + curLine)
         if(re.match(r"^\s*#\s*define\s+.*", curLine)):
@@ -141,21 +137,19 @@ def overall(macros, s):
                 print("Done with entering if statement")
             macros= output[0]
             lines = output[1]
-            outputString += output[2]
         elif(re.match(r"^\s*#.*",curLine)):
             sys.stderr.write("Unexpected direcative\n")
         else:
-            outputString+= normalLine(macros, curLine)
+            normalLine(macros, curLine)
         if(lines):
             curLine= lines.pop(0)
         else:
             curLine=None
-    return outputString
 
 macros = {}
 
 inputString = sys.stdin.read()
 
-print(overall(macros, inputString))
+overall(macros, inputString)
 
 
