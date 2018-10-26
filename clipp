@@ -63,13 +63,10 @@ def normalLine(macros, s, p):
     reBlock = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|([a-zA-z_0-9]*)')
     while(s != subWithMacro(reBlock,s,macros)):
             s = subWithMacro(reBlock, s, macros)
-    if(s=='\n' and p):
-        print('')
-    else:
-        removeSpaces = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|(\s*##\s*)')
-        s = re.sub(removeSpaces, doubleHash, s)
-        if(p):
-            print(s)
+    removeSpaces = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|(\s*##\s*)')
+    s = re.sub(removeSpaces, doubleHash, s)
+    if(p):
+        print(s,end="")
 
 
 
@@ -83,8 +80,11 @@ def ifstatement(macros, curLine, lines, p):
         print("Name in if directive: " + name)
     if(name not in macros.keys()):
         inElse=1
-        
-        curLine=lines.pop(0)
+        if(lines):
+            curLine=lines.pop(0)
+        else: 
+            sys.stderr.write("missing #endif\n")
+            return [macros, lines]
         while((re.match(r"^\s*#\s*else\s*$",curLine)==None) and (re.match(r"^\s*#\s*endif\s*$",curLine)==None)): 
             
             re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
@@ -99,7 +99,11 @@ def ifstatement(macros, curLine, lines, p):
                 return [macros, lines]
         if(re.match(r"^\s*#\s*endif\s*$",curLine)):
                 return [macros, lines]
-    curLine=lines.pop(0)
+    if(lines):
+        curLine=lines.pop(0)
+    else: 
+        sys.stderr.write("missing #endif\n")
+        return [macros, lines]
     while((re.match(r"^\s*#\s*else\s*$",curLine)==None) and (re.match(r"^\s*#\s*endif\s*$",curLine)==None)):
         
         re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
@@ -132,8 +136,11 @@ def ifstatement(macros, curLine, lines, p):
         else:
             if(debugPrint3):
                 print("In useless else statement")
-            
-            curLine=lines.pop(0)
+            if(lines):
+                curLine=lines.pop(0)
+            else: 
+                sys.stderr.write("missing #endif\n")
+                return [macros, lines]
             while(re.match(r"^\s*#\s*endif\s*",curLine)==None): 
                 re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
                 if(re.match(r"^\s*#\s*ifdef\s+[a-zA-Z_][a-zA-Z0-9_]*\s*$", curLine)):
@@ -157,14 +164,22 @@ def ifstatement(macros, curLine, lines, p):
 
 def overall(macros, s):
     s=removeComments(s)
-    lines=s.splitlines()
-    if(debugPrint1):
-        print("List of Lines:" + str(lines))
-    for line in range(0, len(lines)):
-        if(lines[line]==''):
-            lines[line]='\n'
-    macros={}
-    curLine= lines.pop(0)
+    endInLine=0
+    if(s):
+        if(s[len(s)-1]=='\n'):
+            endInLine=1
+        lines=s.splitlines()
+        if(debugPrint1):
+            print("List of Lines:" + str(lines))
+        for line in range(0, len(lines)):
+            lines[line]+='\n'
+        if(endInLine==0):
+            lines[len(lines)-1]=lines[len(lines)-1][0:len(lines[len(lines)-1])-1]
+    if(s):
+        macros={}
+        curLine= lines.pop(0)
+    else:
+        curLine=None
     while(curLine):
         re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
         if(debugPrint1):
