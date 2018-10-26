@@ -28,7 +28,14 @@ def define(macros,s):
     return macros
 
         
-
+def badQuote(matchobj):
+    if(matchobj.group(1)):
+        return ""
+    elif(matchobj.group(2)):
+        return ""
+    elif(matchobj.group(3) or matchobj.group(4)):
+        sys.stderr.write("Bad quote\n")
+    return ""
 
 
 def subWithMacro(reBlock,s, macros):
@@ -54,31 +61,39 @@ def doubleHash(matchobj):
         return matchobj.group()
 
 
-def normalLine(macros, s):
+def normalLine(macros, s, p):
     reBlock = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|([a-zA-z_0-9]*)')
     while(s != subWithMacro(reBlock,s,macros)):
             s = subWithMacro(reBlock, s, macros)
-    if(s=='\n'):
+    if(s=='\n' and p):
         print('')
     else:
         removeSpaces = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|(\s*##\s*)')
         s = re.sub(removeSpaces, doubleHash, s)
-        print(s)
+        if(p):
+            print(s)
 
 
-def badQuotes(s):
-    if(s.count('\'')%2==1 or s.count('\"')%2==1):
-        sys.stderr.write("Bad number of quotes\n")
 
-def ifstatement(macros, curLine, lines):
+def ifstatement(macros, curLine, lines, p):
     matchobj=re.match(r"^\s*#\s*ifdef\s+(.*)\s*", curLine)
     name = matchobj.group(1)
     inElse=0
+    if(debugPrint3):
+        print("IN if statement")
     if(debugPrint1):
         print("Name in if directive: " + name)
     if(name not in macros.keys()):
         inElse=1
-        while((re.match(r"^\s*#\s*else\s*$",curLine)==None) and (re.match(r"^\s*#\s*endif\s*$",curLine)==None)):
+        
+        curLine=lines.pop(0)
+        while((re.match(r"^\s*#\s*else\s*$",curLine)==None) and (re.match(r"^\s*#\s*endif\s*$",curLine)==None)): 
+            
+            re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
+            if(re.match(r"^\s*#\s*ifdef\s+[a-zA-Z_][a-zA-Z0-9_]*\s*$", curLine)):
+                output = ifstatement(macros, curLine, lines, 0)
+                macros= output[0]
+                lines = output[1]
             if(lines):
                 curLine=lines.pop(0)
             else:
@@ -88,19 +103,20 @@ def ifstatement(macros, curLine, lines):
                 return [macros, lines]
     curLine=lines.pop(0)
     while((re.match(r"^\s*#\s*else\s*$",curLine)==None) and (re.match(r"^\s*#\s*endif\s*$",curLine)==None)):
-        badQuotes(curLine)
+        
+        re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
         if(debugPrint1):
             print("IN WHILE LOOP:" + curLine)
-        if(re.match(r"^\s*#\s*define\s+.*", curLine)):
+        if(re.match(r"^\s*#\s*define\s+.*", curLine) and p):
             macros = define(macros, curLine)
         elif(re.match(r"^\s*#\s*ifdef\s+[a-zA-Z_][a-zA-Z0-9_]*\s*$", curLine)):
-            output = ifstatement(macros, curLine, lines)
+            output = ifstatement(macros, curLine, lines,p)
             macros= output[0]
             lines = output[1]
-        elif(re.match(r"^\s*#.*",curLine)):
+        elif(re.match(r"^\s*#.*",curLine) and p):
             sys.stderr.write("Unexpected direcative\n")
         else:
-            normalLine(macros, curLine)
+            normalLine(macros, curLine, p)
         if(lines):
             curLine= lines.pop(0)
         else:
@@ -116,9 +132,19 @@ def ifstatement(macros, curLine, lines):
             sys.stderr.write("extra else statement\n")
             return [macros, lines]
         else:
-            if(debugPrint1):
+            if(debugPrint3):
                 print("In useless else statement")
-            while(re.match(r"^\s*#\s*endif\s*",curLine)==None):
+            
+            curLine=lines.pop(0)
+            while(re.match(r"^\s*#\s*endif\s*",curLine)==None): 
+                re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
+                if(re.match(r"^\s*#\s*ifdef\s+[a-zA-Z_][a-zA-Z0-9_]*\s*$", curLine)):
+                    output = ifstatement(macros, curLine, lines, 0)
+                    macros= output[0]
+                    lines = output[1]
+                elif(re.match(r"^\s*#\s*else\s*$",curLine)):                        
+                    sys.stderr.write("extra else statement\n")
+                    return [macros, lines]
                 if(lines):
                     curLine= lines.pop(0)
                 else:
@@ -142,7 +168,7 @@ def overall(macros, s):
     macros={}
     curLine= lines.pop(0)
     while(curLine):
-        badQuotes(curLine)
+        re.sub(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)', badQuote, curLine)
         if(debugPrint1):
             print("Current Line " + curLine)
         if(re.match(r"^\s*#\s*define\s+.*", curLine)):
@@ -150,7 +176,7 @@ def overall(macros, s):
                 print("We are about to define value")
             macros = define(macros, curLine)
         elif(re.match(r"^\s*#\s*ifdef\s+[a-zA-Z_][a-zA-Z0-9_]*\s*$", curLine)):
-            output = ifstatement(macros, curLine, lines)
+            output = ifstatement(macros, curLine, lines, 1)
             if(debugPrint1):
                 print("Done with entering if statement")
             macros= output[0]
@@ -158,7 +184,7 @@ def overall(macros, s):
         elif(re.match(r"^\s*#.*",curLine)):
             sys.stderr.write("Unexpected direcative\n")
         else:
-            normalLine(macros, curLine)
+            normalLine(macros, curLine,1)
         if(lines):
             curLine= lines.pop(0)
         else:
