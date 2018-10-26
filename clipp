@@ -49,6 +49,11 @@ def subWithMacro(reBlock,s, macros):
                 
     return s
 
+def doubleHash(matchobj):
+    if(matchobj.group(5)):
+        return ""
+    else:
+        return matchobj.group()
 
 
 def normalLine(macros, s):
@@ -58,6 +63,8 @@ def normalLine(macros, s):
     if(s=='\n'):
         print('')
     else:
+        removeSpaces = re.compile(r'(\".*?\")|(\'.*?\')|(\".*)|(\'.*)|(\s*##\s*)')
+        s = re.sub(removeSpaces, doubleHash, s)
         print(s)
 
 
