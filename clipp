@@ -40,7 +40,6 @@ def badQuote(matchobj):
 
 def subWithMacro(reBlock,s, macros):
     matchobjs = re.finditer(reBlock, s)
-    additionalIndices=0
     for matchobj in matchobjs:
         if(matchobj.group(5)): 
             string=matchobj.group(5)
@@ -49,9 +48,8 @@ def subWithMacro(reBlock,s, macros):
                 string= macros[string]
                 if(debugPrint1):
                     print("Current Line: " + s + " being replaced by " + string  +  " at "  + str(matchobj.start() + additionalIndices) + " to " + str(matchobj.end() + additionalIndices))
-                s = s[:matchobj.start()+additionalIndices] + string + s[matchobj.end()+additionalIndices:]
-                additionalIndices+= len(string) - len(original)
-                
+                s = s[:matchobj.start()] + string + s[matchobj.end():]
+                return s
     return s
 
 def doubleHash(matchobj):
