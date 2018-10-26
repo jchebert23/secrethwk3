@@ -6,16 +6,14 @@ debugPrint1=0
 def quoteOrComment(matchobj):
     if(matchobj.group(1)):
         return " "
-    elif(matchobj.group(2)):
-        return matchobj.group(2)
-    elif(matchobj.group(3)):
-        return matchobj.group(3)
-    elif(matchobj.group(4)):
+    elif(matchobj.group(2) or matchobj.group(3) or matchobj.group(4) or matchobj.group(5)):
+        return matchobj.group()
+    elif(matchobj.group(6)):
         sys.stderr.write("Unterminated Comment\n")
         return ""
 
 def removeComments(s):
-    removeBlocks = re.compile(r'(/\*.*?\*/)|(\".*?\")|(\'.*?\')|(/\*.*)',flags=re.DOTALL)
+    removeBlocks = re.compile(r'(/\*.*?\*/)|(\".*?\")|(\'.*?\')|(\'.*)|(\".*)|(/\*.*)',flags=re.DOTALL)
     s=re.sub(removeBlocks, quoteOrComment ,s)
     return s 
 
@@ -137,7 +135,7 @@ def overall(macros, s):
     if(debugPrint1):
         print("List of Lines:" + str(lines))
     for line in range(0, len(lines)):
-        if(lines[line]=='' and line!=len(lines)-1):
+        if(lines[line]==''):
             lines[line]='\n'
     macros={}
     curLine= lines.pop(0)
@@ -167,9 +165,9 @@ def overall(macros, s):
 
 
 def main():
-
     macros = {}
     inputString = sys.stdin.read()
     overall(macros, inputString)
+
 if __name__=="__main__":
     main()
