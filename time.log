@@ -4,8 +4,8 @@ ESTIMATE of time to complete assignment: 15
 DATE  START TIME  TIME SPENT WORK COMPLETED
 10/23/18  4:00      5:00      read spec, look into reg exp, wrote function to remove block comments, dealing with if comments are nested under quotes, dealing with define
 10/24/18  5:15      3:00      dealing with breaking up normal, non directive lines; dealing with directives
-10/25/18  4:30      1:00      restructing how I parse normal lines, and replace potential macros
-                    8:00  = TOTAL Time spent
+10/25/18  4:30      3:00      restructing how I parse normal lines, and replace potential macros
+                    11:00  = TOTAL Time spent
 
 
 I have discuseed my answers with Andrew Sheinberg

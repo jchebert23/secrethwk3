@@ -4,14 +4,18 @@ import sys
 debugPrint1=0
 
 def quoteOrComment(matchobj):
-    string = matchobj.group(1)
-    if(string[0] == '/'):
+    if(matchobj.group(1)):
         return ""
-    else:
-        return string
+    elif(matchobj.group(2)):
+        return matchobj.group(2)
+    elif(matchobj.group(3)):
+        return matchobj.group(3)
+    elif(matchobj.group(4)):
+        sys.stderr.write("Unterminated Comment\n")
+        return ""
 
 def removeComments(s):
-    removeBlocks = re.compile(r'(/\*.*?\*/)|(\"[^\n]*?\")|(\'[^\n]*?\')',flags=re.DOTALL)
+    removeBlocks = re.compile(r'(/\*.*?\*/)|(\".*?\")|(\'.*?\')|(/\*.*)',flags=re.DOTALL)
     s=re.sub(removeBlocks, quoteOrComment ,s)
     return s 
 
@@ -27,20 +31,24 @@ def define(macros,s):
 
 def subWithMacro(reBlock,s, macros):
     matchobjs = re.finditer(reBlock, s)
+    additionalIndices=0
     for matchobj in matchobjs:
-        if(matchobj.group(3)):
+        if(matchobj.group(3)): 
             string=matchobj.group(3)
-            if(string):
-                if(re.match(r"(^[a-zA-z_0-9]).*", string)):
-                    if(string in macros.keys()):
-                        string= macros[string]
-                        s = s[0:matchobj.start()] + string + s[matchobj.end():]
+            if(string in macros.keys()):
+                original=string
+                string= macros[string]
+                if(debugPrint1):
+                    print("Current Line: " + s + " being replaced by " + string  +  " at "  + str(matchobj.start() + additionalIndices) + " to " + str(matchobj.end() + additionalIndices))
+                s = s[:matchobj.start()+additionalIndices] + string + s[matchobj.end()+additionalIndices:]
+                additionalIndices+= len(string) - len(original)
+                
     return s
 
 
 
 def normalLine(macros, s):
-    reBlock = re.compile(r'(\".*?\")|(\'.*?\')|([a-zA-z_0-9\s]*)')
+    reBlock = re.compile(r'(\".*?\")|(\'.*?\')|([a-zA-z_0-9]*)')
     while(s != subWithMacro(reBlock,s,macros)):
             s = subWithMacro(reBlock, s, macros)
     if(s=='\n'):
